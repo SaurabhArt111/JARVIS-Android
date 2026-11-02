@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Main look: follows the system day/night setting for the window itself; the app's own palette (Settings > Appearance) is painted by the views. Edge-to-edge. -->
+    <style name="Theme.Jarvis" parent="@android:style/Theme.DeviceDefault.DayNight">
+        <item name="android:windowBackground">@color/jarvis_bg</item>
+        <item name="android:statusBarColor">@color/jarvis_transparent</item>
+        <item name="android:navigationBarColor">@color/jarvis_transparent</item>
+        <item name="android:enforceNavigationBarContrast">false</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+
+    <!-- The long-press-Home assistant sheet: translucent so the app underneath stays visible. -->
+    <style name="Theme.Jarvis.Assistant" parent="Theme.Jarvis">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@color/jarvis_transparent</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:windowAnimationStyle">@android:style/Animation.Activity</item>
+    </style>
+
+    <!-- Dialogs are drawn by the app's own toolkit (rounded card in the current palette), so the window itself is transparent. -->
+    <style name="Theme.Jarvis.Dialog" parent="@android:style/Theme.DeviceDefault.Dialog">
+        <item name="android:windowBackground">@color/jarvis_transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">true</item>
+    </style>
+</resources>

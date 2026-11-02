@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- ===== PERMISSIONS (each one is requested at the moment it is needed; see docs/PERMISSIONS.md) ===== -->
+    <!-- PERMISSIONS-BEGIN -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- runtime permissions: asked one at a time, right before the feature that needs them -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />            <!-- talking to JARVIS, wake word -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />      <!-- reminders, timers, listening status (Android 13+) -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />           <!-- "call Mom": looked up on the phone, never uploaded -->
+    <uses-permission android:name="android.permission.CALL_PHONE" />              <!-- optional: place the call directly instead of opening the dialer -->
+    <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" />      <!-- optional: answer / end a call on request -->
+
+    <!-- special access: the user grants these on a system screen (see the Permissions screen) -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />     <!-- island overlay; lets Android open apps for you while JARVIS is in the background -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />    <!-- reminders and timers at the exact minute -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />  <!-- alarm-style reminders on the lock screen -->
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" />          <!-- change screen brightness on request -->
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" /> <!-- Do Not Disturb on request -->
+
+    <!-- normal permissions (granted at install) -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />  <!-- re-register reminders after a restart -->
+    <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />     <!-- hand an alarm to the Clock app -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />      <!-- the always-visible "listening" service -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" /> <!-- Android 14+: the service type that may use the microphone -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" /> <!-- Android 14+: the island overlay service (see its declaration) -->
+
+    <!-- hardware that is nice to have but never required: JARVIS installs on phones without them and says so when a request needs it -->
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.flash" android:required="false" />
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <!-- PERMISSIONS-END -->
+
+    <!-- ===== PACKAGE VISIBILITY (no QUERY_ALL_PACKAGES: launcher apps, browsers and messaging apps only) ===== -->
+    <queries>
+        <!-- QUERIES-BEGIN -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <!-- browsers (list + explicit "open in Brave") -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="http" />
+        </intent>
+        <!-- opening a saved file -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="*/*" />
+        </intent>
+        <!-- dialer, SMS, Clock app, music search: to check that something can handle the request BEFORE claiming it worked -->
+        <intent>
+            <action android:name="android.intent.action.DIAL" />
+            <data android:scheme="tel" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="smsto" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SET_ALARM" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SET_TIMER" />
+        </intent>
+        <intent>
+            <action android:name="android.media.action.MEDIA_PLAY_FROM_SEARCH" />
+        </intent>
+        <!-- speech recogniser services (SpeechRecognizer.isRecognitionAvailable) and text-to-speech engines -->
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    <!-- QUERIES-END -->
+    </queries>
+
+    <application
+        android:name=".JarvisApp"
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Jarvis"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:enableOnBackInvokedCallback="true">
+
+        <!-- ACTIVITIES-BEGIN -->
+        <activity
+            android:name=".ui.MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|uiMode|fontScale|density|layoutDirection|locale">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- text shared from another app lands in the chat input box (never sent automatically) -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+        <!-- The compact chat sheet: opened by the voice-interaction session (long-press Home), the Quick Settings tile and the assistant intent -->
+        <activity
+            android:name=".ui.AssistantActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Jarvis.Assistant"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|uiMode|fontScale|density|layoutDirection|locale">
+            <intent-filter>
+                <action android:name="android.intent.action.ASSIST" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+        <!-- The assistant over the lock screen. It draws above the keyguard (showWhenLocked) but never removes it; unlocking is always the system's own prompt. Not exported: only JARVIS's own components, notification PendingIntents and the system (through them) start it. -->
+        <activity
+            android:name=".lock.LockScreenActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Jarvis"
+            android:showWhenLocked="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|uiMode|fontScale|density|layoutDirection|locale" />
+        <!-- ACTIVITIES-END -->
+
+        <!-- SERVICES-BEGIN -->
+        <!-- Wake-word listening. Started by the user from the visible app (Android 12+/14+ refuse it from the background); shows an ongoing notification the whole time. -->
+        <service
+            android:name=".service.AssistantForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
+        <!-- The Dynamic-Island-style status overlay. A foreground service of type specialUse: nothing in Android's fixed type list fits "draw a status pill over other apps". -->
+        <service
+            android:name=".island.IslandService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps the assistant's status overlay (a small pill near the camera cutout) alive while the user has switched it on in settings. It is removed when the user switches it off." />
+        </service>
+        <!-- Notification access: only active when the user grants it on a system screen AND switches the integration on inside JARVIS. Also the component Android needs before an app may read media sessions. -->
+        <service
+            android:name=".access.JarvisNotificationListener"
+            android:label="@string/app_name"
+            android:exported="true"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+        <!-- Minimal accessibility service: global actions only (Home, Back, Recents, shade, lock, screenshot, power menu). No events, no screen content. See res/xml/accessibility_service_config.xml. -->
+        <service
+            android:name=".access.JarvisAccessibilityService"
+            android:label="@string/access_service_label"
+            android:exported="true"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+        <!-- Assistant gesture (long-press Home etc.): makes JARVIS selectable as the phone's digital assistant, shown as "Jarvis Air". The user picks it in Settings > Apps > Default apps > Digital assistant app. -->
+        <service
+            android:name=".assist.JarvisVoiceInteractionService"
+            android:label="@string/assist_service_label"
+            android:permission="android.permission.BIND_VOICE_INTERACTION"
+            android:exported="true">
+            <meta-data
+                android:name="android.voice_interaction"
+                android:resource="@xml/assistant_service" />
+            <intent-filter>
+                <action android:name="android.service.voice.VoiceInteractionService" />
+            </intent-filter>
+        </service>
+        <service
+            android:name=".assist.JarvisVoiceInteractionSessionService"
+            android:permission="android.permission.BIND_VOICE_INTERACTION"
+            android:exported="true" />
+        <!-- Required by the voice-interaction metadata. Forwards to the phone's own recogniser so becoming the default assistant never breaks dictation (see the class comment). -->
+        <service
+            android:name=".assist.JarvisRecognitionService"
+            android:label="@string/assist_service_label"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.speech.RecognitionService" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </service>
+        <!-- Quick Settings tile that opens the same compact chat -->
+        <service
+            android:name=".assist.JarvisTileService"
+            android:label="@string/assist_tile_label"
+            android:icon="@drawable/ic_mic"
+            android:exported="true"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+        <!-- SERVICES-END -->
+
+        <!-- RECEIVERS-BEGIN -->
+        <receiver android:name=".receivers.ReminderAlarmReceiver" android:exported="false" />
+        <receiver android:name=".receivers.ReminderActionReceiver" android:exported="false" />
+        <receiver android:name=".receivers.SystemEventsReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
+        <!-- The "Type a request" box of the listening notification (lock-screen assistant on). Not exported; the notification's PendingIntent is explicit. -->
+        <receiver android:name=".lock.LockTypedReceiver" android:exported="false" />
+    <!-- RECEIVERS-END -->
+
+        <!-- PROVIDERS-BEGIN -->
+        <!-- read-only access to files JARVIS keeps in its private storage, so they can be opened/shared with a temporary grant -->
+        <provider
+            android:name=".platform.JarvisFileProvider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true" />
+    <!-- PROVIDERS-END -->
+    </application>
+</manifest>

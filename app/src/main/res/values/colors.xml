@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#050B14</color>
+    <!-- first-frame window colour (the app paints its own palette from Settings right after); night variant in values-night -->
+    <color name="jarvis_bg">#F3F4F8</color>
+    <color name="jarvis_transparent">#00000000</color>
+</resources>

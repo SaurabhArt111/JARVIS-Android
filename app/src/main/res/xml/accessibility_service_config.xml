@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Deliberately minimal. No accessibilityEventTypes (the service receives no events), canRetrieveWindowContent is false (it cannot read any screen),
+  and no gestures or key events are requested. It exists only so Android allows performGlobalAction (Home, Back, Recents, shade, lock, screenshot, power menu).
+-->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/access_service_description"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:canRetrieveWindowContent="false"
+    android:notificationTimeout="0" />

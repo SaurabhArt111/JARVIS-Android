@@ -1,0 +1,22 @@
+{
+  "app": "jarvis",
+  "version": 1,
+  "settings": {
+    "UserName": "Sir",
+    "AIMode": "auto",
+    "ChatProvider": "auto",
+    "DecisionProvider": "auto",
+    "OllamaURL": "",
+    "OllamaModel": "llama3.1",
+    "OpenAIBaseURL": "https://api.openai.com/v1",
+    "OpenAIModel": "gpt-4o-mini",
+    "AgentMode": "On",
+    "InputLanguage": "en",
+    "WakeEngine": "auto",
+    "WakeSensitivity": "medium",
+    "LockPrivacy": "strict",
+    "StorageLocation": "documents",
+    "ThemeMode": "System",
+    "Accent": "Cyan"
+  }
+}

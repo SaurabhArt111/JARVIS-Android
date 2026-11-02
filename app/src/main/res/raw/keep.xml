@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icons are looked up by name at runtime (Icons.res), so resource shrinking must not remove them. -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@drawable/ic_*" />

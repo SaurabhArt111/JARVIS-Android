@@ -1,0 +1,16 @@
+# secrets and local machine files
+.env
+.env.*
+*.keystore
+*.jks
+local.properties
+secrets.properties
+# build outputs
+build/
+.gradle/
+.idea/
+*.iml
+captures/
+.cxx/
+# downloaded wake-word models (CC BY-NC-SA 4.0, fetched by the user inside the app, never bundled)
+*.onnx

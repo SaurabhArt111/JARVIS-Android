@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Metadata for the voice-interaction service (what makes JARVIS appear under Settings > Apps > Default apps > Digital assistant app).
+  supportsAssist is what puts it in that list. JARVIS does not read the "assist data" (screen text / screenshot) Android may hand to assistants: the session does not override
+  the handlers, so the data is dropped (see JarvisVoiceInteractionSession).
+-->
+<voice-interaction-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:sessionService="com.jarvis.assistant.assist.JarvisVoiceInteractionSessionService"
+    android:recognitionService="com.jarvis.assistant.assist.JarvisRecognitionService"
+    android:settingsActivity="com.jarvis.assistant.ui.MainActivity"
+    android:supportsAssist="true"
+    android:supportsLaunchVoiceAssistFromKeyguard="true" />

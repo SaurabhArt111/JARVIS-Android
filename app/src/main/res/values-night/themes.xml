@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Night: dark system bars icons (light icons on the dark window). DayNight already switches the base theme; this only pins the bar appearance. -->
+    <style name="Theme.Jarvis" parent="@android:style/Theme.DeviceDefault.DayNight">
+        <item name="android:windowBackground">@color/jarvis_bg</item>
+        <item name="android:statusBarColor">@color/jarvis_transparent</item>
+        <item name="android:navigationBarColor">@color/jarvis_transparent</item>
+        <item name="android:enforceNavigationBarContrast">false</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+</resources>

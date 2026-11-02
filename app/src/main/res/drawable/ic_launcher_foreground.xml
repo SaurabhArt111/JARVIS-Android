@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- JARVIS mark: an arc-reactor ring with a triangle core, cyan on near-black. Drawn inside the 66 dp adaptive-icon safe zone (centre 54,54). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- soft glow -->
+    <path
+        android:fillColor="#2200E5FF"
+        android:pathData="M54,54m-30,0a30,30 0 1,1 60,0a30,30 0 1,1 -60,0" />
+    <!-- outer ring -->
+    <path
+        android:pathData="M54,54m-25,0a25,25 0 1,1 50,0a25,25 0 1,1 -50,0"
+        android:strokeColor="#22D3EE"
+        android:strokeWidth="3.4" />
+    <!-- segmented inner ring -->
+    <path
+        android:pathData="M54,54m-17,0a17,17 0 1,1 34,0a17,17 0 1,1 -34,0"
+        android:strokeColor="#7DE9F7"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round" />
+    <!-- triangle core -->
+    <path
+        android:fillColor="#4D22D3EE"
+        android:pathData="M54,43.5L63.2,59.5L44.8,59.5Z"
+        android:strokeColor="#E6FBFF"
+        android:strokeWidth="2.2"
+        android:strokeLineJoin="round" />
+    <!-- centre spark -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,55.2m-2.2,0a2.2,2.2 0 1,1 4.4,0a2.2,2.2 0 1,1 -4.4,0" />
+</vector>

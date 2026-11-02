@@ -1,0 +1,2 @@
+# Copy to local.properties (never commit it). Android Studio creates local.properties itself with sdk.dir.
+# sdk.dir=/path/to/Android/Sdk

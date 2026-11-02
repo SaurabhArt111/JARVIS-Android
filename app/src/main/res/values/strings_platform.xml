@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings owned by the platform layer (permissions, notifications, storage). UI strings live in strings.xml. -->
+<resources>
+    <!-- permission names + why JARVIS asks (shown on the Permissions screen and before each request) -->
+    <string name="perm_microphone_title">Microphone</string>
+    <string name="perm_microphone_why">Lets you talk to JARVIS and, if you turn it on, listen for the wake word. Audio is processed on this phone for wake-word detection; speech-to-text uses Android\'s own recogniser.</string>
+    <string name="perm_notifications_title">Notifications</string>
+    <string name="perm_notifications_why">Needed to show reminders, timers and the "JARVIS is listening" status. Without it a reminder can still ring, but you may not see it.</string>
+    <string name="perm_contacts_title">Contacts</string>
+    <string name="perm_contacts_why">Lets JARVIS find "Mom" or "Priya" in your contacts when you ask it to call or message someone. Contacts are looked up on this phone and are not uploaded.</string>
+    <string name="perm_call_phone_title">Phone calls</string>
+    <string name="perm_call_phone_why">Lets JARVIS start a call directly and answer or end calls when you ask. Without it, JARVIS opens the dialer with the number filled in and you press call.</string>
+    <string name="perm_overlay_title">Display over other apps</string>
+    <string name="perm_overlay_why">Needed for the Dynamic-Island-style bar at the top of the screen, and lets Android open apps for you while JARVIS is in the background.</string>
+    <string name="perm_notification_listener_title">Notification access</string>
+    <string name="perm_notification_listener_why">Lets JARVIS read incoming notifications aloud, show what is playing, and reply to chat notifications on request. It stays off until you enable it, and you can switch it off any time.</string>
+    <string name="perm_accessibility_title">Accessibility shortcuts</string>
+    <string name="perm_accessibility_why">Only used for the system actions you ask for: Home, Back, Recents, the notification shade, lock screen and screenshot. JARVIS does not read what is on your screen.</string>
+    <string name="perm_exact_alarm_title">Alarms and reminders</string>
+    <string name="perm_exact_alarm_why">Lets reminders and timers ring at the exact minute. Without it Android may delay them by several minutes.</string>
+    <string name="perm_write_settings_title">Change system settings</string>
+    <string name="perm_write_settings_why">Needed to change screen brightness for you.</string>
+    <string name="perm_dnd_access_title">Do Not Disturb access</string>
+    <string name="perm_dnd_access_why">Needed to turn Do Not Disturb on or off when you ask.</string>
+    <string name="perm_full_screen_intent_title">Full-screen alerts</string>
+    <string name="perm_full_screen_intent_why">Lets an alarm-style reminder light up the screen when the phone is locked.</string>
+    <string name="perm_battery_optimization_title">Unrestricted battery use</string>
+    <string name="perm_battery_optimization_why">Many phones stop background apps to save power. Allowing unrestricted use makes always-on listening and reminders more reliable. Some brands need an extra setting; see the Background listening guide.</string>
+    <string name="perm_assistant_role_title">Default assistant</string>
+    <string name="perm_assistant_role_why">Makes JARVIS open when you long-press Home or use the assistant gesture. Android asks you to pick it under Default apps → Digital assistant app.</string>
+    <string name="perm_unlock_title">Unlocked phone</string>
+    <string name="perm_unlock_why">Some requests show personal information, so JARVIS asks you to unlock the phone first. JARVIS never bypasses your lock screen.</string>
+    <string name="perm_network_title">Internet connection</string>
+    <string name="perm_network_why">Needed for web search, weather, image generation and cloud AI providers.</string>
+    <string name="perm_api_key_title">AI provider key</string>
+    <string name="perm_api_key_why">Open-ended chat and writing need at least one AI provider. Add a key in Settings → AI providers.</string>
+    <string name="perm_app_installed_title">App installed</string>
+    <string name="perm_app_installed_why">The app you asked for isn\'t installed on this phone.</string>
+
+    <string name="perm_status_granted">Allowed</string>
+    <string name="perm_status_denied">Not allowed</string>
+    <string name="perm_status_unavailable">Not available on this phone</string>
+
+    <!-- notification channels and texts -->
+    <string name="notif_channel_reminders">Reminders and alarms</string>
+    <string name="notif_channel_reminders_desc">Reminders, alarms and timers that are due.</string>
+    <string name="notif_channel_listening">Background listening</string>
+    <string name="notif_channel_listening_desc">Shows that JARVIS is listening for the wake word.</string>
+    <string name="notif_channel_results">Assistant results</string>
+    <string name="notif_channel_results_desc">Answers and results from requests made while the screen is off.</string>
+    <string name="notif_channel_timers">Timers</string>
+    <string name="notif_channel_timers_desc">Timers that have finished.</string>
+    <string name="notif_reminder_title">Reminder</string>
+    <string name="notif_alarm_title">Alarm</string>
+    <string name="notif_timer_title">Timer finished</string>
+    <string name="notif_action_done">Done</string>
+    <string name="notif_action_snooze">Snooze 10 min</string>
+    <string name="notif_resume_listening_title">Tap to resume listening</string>
+    <string name="notif_resume_listening_text">Android doesn\'t allow apps to start the microphone after a restart. Tap here to turn wake-word listening back on.</string>
+    <string name="notif_overdue_title">Missed while the phone was off</string>
+
+    <!-- storage -->
+    <string name="storage_public_note">Saved to Documents/JARVIS/%1$s</string>
+    <string name="storage_private_note">Saved in JARVIS\'s private storage (shared Documents folder wasn\'t available)</string>
+    <string name="storage_unsupported_type">That file type isn\'t allowed in %1$s.</string>
+    <string name="storage_full">There isn\'t enough free space to save this file.</string>
+</resources>
