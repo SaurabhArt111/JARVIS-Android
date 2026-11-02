@@ -392,6 +392,10 @@
     <string name="ui_island_collapse_sub">How long a reply stays open</string>
     <string name="ui_island_reset">Reset position and size</string>
     <string name="ui_island_behaviour">Behaviour</string>
+    <string name="ui_island_visibility">Island visibility</string>
+    <string name="ui_island_visibility_sub">Choose whether the island stays on screen when idle or hides when unused</string>
+    <string name="ui_island_vis_hide">Hide when unused</string>
+    <string name="ui_island_vis_always">Always visible</string>
     <string name="ui_island_speak">Speak replies from the island</string>
     <string name="ui_island_speak_sub">Off by default</string>
     <string name="ui_lock_honest">This is a policy for what JARVIS may do while the phone is locked. JARVIS never unlocks the phone, skips the lock, or weakens it. Anything private makes it ask you to unlock with your own PIN, pattern or fingerprint.</string>

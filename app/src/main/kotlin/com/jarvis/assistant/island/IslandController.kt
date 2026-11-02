@@ -48,6 +48,7 @@ class IslandController(private val service: Context, private val c: AppContainer
     private val scope = CoroutineScope(SupervisorJob() + MainThread + c.appLog.coroutineHandler)
     private val reducer = IslandReducer(
         collapseMs = { c.settings.int(Keys.ISLAND_COLLAPSE_SECONDS, 4).coerceIn(2, 20) * 1000L },
+        alwaysVisible = { c.settings.flag(Keys.ISLAND_ALWAYS_VISIBLE, false) },
         lockedText = service.getString(R.string.svc_locked_reply),
         lockedReminderText = service.getString(R.string.notif_reminder_title),
     )

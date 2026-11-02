@@ -38,7 +38,7 @@ class RemindersScreen : Screen() {
 
     private val vm: RemindersViewModel get() = ViewModels.get("reminders") { RemindersViewModel(app) }
     private val timeFmt: DateFormat by lazy { DateFormat.getTimeInstance(DateFormat.SHORT) }
-    private fun s(id: Int, vararg a: Any) = activity.getString(id, *a)
+    private fun s(id: Int, vararg a: Any) = if (a.isEmpty()) activity.getString(id) else activity.getString(id, *a)
 
     override fun actions(): List<TopAction> = listOf(
         TopAction("plus", s(R.string.ui_rem_add)) { if (vm.state.value.tab == RemindersViewModel.Tab.NOTES) addNote() else addReminder() },

@@ -62,7 +62,7 @@ class ChatScreen(private val sheet: SheetHooks? = null) : Screen(), ChatCards.Ho
     private var firstRender = true
     private val timeFmt: DateFormat by lazy { DateFormat.getTimeInstance(DateFormat.SHORT) }
 
-    private fun s(id: Int, vararg a: Any) = activity.getString(id, *a)
+    private fun s(id: Int, vararg a: Any) = if (a.isEmpty()) activity.getString(id) else activity.getString(id, *a)
 
     override fun onShown() { vm.refreshFlags(); vm.greetIfDue() }
     override fun onActivityResumed() { vm.refreshFlags() }

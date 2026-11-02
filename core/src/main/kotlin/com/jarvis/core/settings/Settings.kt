@@ -106,6 +106,7 @@ class Settings(private val store: SettingsStore) {
             Keys.ISLAND_OFFSET_Y to "0",
             Keys.ISLAND_SIZE to "100",
             Keys.ISLAND_COLLAPSE_SECONDS to "4",
+            Keys.ISLAND_ALWAYS_VISIBLE to "Off",
             Keys.ISLAND_SPEAK to "Off",
             // lock screen
             Keys.LOCK_MODE_ENABLED to "Off",
@@ -189,6 +190,7 @@ object Keys {
     const val ISLAND_OFFSET_Y = "IslandOffsetY"
     const val ISLAND_SIZE = "IslandSize"
     const val ISLAND_COLLAPSE_SECONDS = "IslandCollapseSeconds"
+    const val ISLAND_ALWAYS_VISIBLE = "IslandAlwaysVisible"
     const val ISLAND_SPEAK = "IslandSpeak"
 
     const val LOCK_MODE_ENABLED = "LockModeEnabled"

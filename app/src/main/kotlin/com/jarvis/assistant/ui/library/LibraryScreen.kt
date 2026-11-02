@@ -39,7 +39,7 @@ class LibraryScreen : Screen() {
     private val vm: LibraryViewModel get() = ViewModels.get("library") { LibraryViewModel(app) }
     private var searchShown = false
     private val dateFmt: DateFormat by lazy { DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT) }
-    private fun s(id: Int, vararg a: Any) = activity.getString(id, *a)
+    private fun s(id: Int, vararg a: Any) = if (a.isEmpty()) activity.getString(id) else activity.getString(id, *a)
 
     override fun actions(): List<TopAction> = listOf(
         TopAction("search", s(R.string.ui_search)) { searchShown = !searchShown; host.rebuild() },

@@ -7,6 +7,8 @@ import com.jarvis.core.ports.ImageEventType
 enum class IslandMode {
     /** Nothing to show: the overlay window is removed so it cannot block touches. */
     HIDDEN,
+    /** Idle state when always visible option is enabled. */
+    IDLE,
     LISTENING, THINKING, SPEAKING,
     /** The latest answer. Collapses by itself. */
     REPLY,
@@ -56,25 +58,29 @@ sealed class IslandInput {
  */
 class IslandReducer(
     private val collapseMs: () -> Long,
+    private val alwaysVisible: () -> Boolean = { false },
     private val lockedText: String = "You have a response. Unlock your phone to see it.",
     private val lockedReminderText: String = "You have a reminder.",
     /** An active mode (listening/thinking/speaking) with no input for this long is assumed stuck and hidden. */
     private val watchdogMs: Long = 90_000L,
 ) {
-    fun reduce(s: IslandUiState, input: IslandInput, nowMs: Long): IslandUiState = when (input) {
-        is IslandInput.Engine -> engine(s, input.state, nowMs)
-        is IslandInput.Event -> event(s, input.event, nowMs)
-        is IslandInput.Cue -> cue(s, input, nowMs)
-        is IslandInput.Level -> if (s.mode == IslandMode.LISTENING) s.copy(level = input.value.coerceIn(0f, 1f)) else s
-        is IslandInput.Lock -> s.copy(locked = input.locked)
-        is IslandInput.Preview -> s.copy(mode = IslandMode.REPLY, title = "JARVIS", text = input.text, icon = "check", expanded = false, sinceMs = nowMs, lastReply = input.text)
-        IslandInput.Tap -> if (s.mode == IslandMode.HIDDEN) s else s.copy(expanded = !s.expanded, sinceMs = nowMs)
-        IslandInput.Close -> s.copy(mode = IslandMode.HIDDEN, expanded = false, level = 0f, progress = null)
-        IslandInput.Tick -> tick(s, nowMs)
+    fun reduce(s: IslandUiState, input: IslandInput, nowMs: Long): IslandUiState {
+        val out = when (input) {
+            is IslandInput.Engine -> engine(s, input.state, nowMs)
+            is IslandInput.Event -> event(s, input.event, nowMs)
+            is IslandInput.Cue -> cue(s, input, nowMs)
+            is IslandInput.Level -> if (s.mode == IslandMode.LISTENING) s.copy(level = input.value.coerceIn(0f, 1f)) else s
+            is IslandInput.Lock -> s.copy(locked = input.locked)
+            is IslandInput.Preview -> s.copy(mode = IslandMode.REPLY, title = "JARVIS", text = input.text, icon = "check", expanded = false, sinceMs = nowMs, lastReply = input.text)
+            IslandInput.Tap -> if (s.mode == IslandMode.HIDDEN) (if (alwaysVisible()) s.copy(mode = IslandMode.IDLE, title = "JARVIS", icon = "zap", sinceMs = nowMs) else s) else s.copy(expanded = !s.expanded, sinceMs = nowMs)
+            IslandInput.Close -> if (alwaysVisible()) s.copy(mode = IslandMode.IDLE, title = "JARVIS", text = "", icon = "zap", expanded = false, level = 0f, progress = null) else s.copy(mode = IslandMode.HIDDEN, expanded = false, level = 0f, progress = null)
+            IslandInput.Tick -> tick(s, nowMs)
+        }
+        return if (out.mode == IslandMode.HIDDEN && alwaysVisible()) out.copy(mode = IslandMode.IDLE, title = "JARVIS", text = "", icon = "zap", sinceMs = nowMs) else out
     }
 
     /** Should the caller keep ticking? (only while something can time out) */
-    fun needsTick(s: IslandUiState) = s.mode != IslandMode.HIDDEN
+    fun needsTick(s: IslandUiState) = s.mode != IslandMode.HIDDEN && s.mode != IslandMode.IDLE
 
     private fun active(m: IslandMode) = m == IslandMode.LISTENING || m == IslandMode.THINKING || m == IslandMode.SPEAKING
 
@@ -86,6 +92,7 @@ class IslandReducer(
         EngineState.IDLE -> when {
             !active(s.mode) -> s
             s.mode != IslandMode.LISTENING && s.lastReply.isNotBlank() -> s.copy(mode = IslandMode.REPLY, title = "JARVIS", text = s.lastReply, icon = "check", sinceMs = now)
+            alwaysVisible() -> s.copy(mode = IslandMode.IDLE, title = "JARVIS", text = "", icon = "zap", expanded = false, level = 0f)
             else -> s.copy(mode = IslandMode.HIDDEN, expanded = false, level = 0f)
         }
     }
@@ -120,22 +127,25 @@ class IslandReducer(
         val base = s.copy(locked = c.locked)
         return when (c.kind) {
             CueKind.LISTENING -> engine(base, EngineState.LISTENING, now)
-            CueKind.HEARD -> if (base.mode == IslandMode.HIDDEN || base.mode == IslandMode.REPLY || base.mode == IslandMode.NOTICE)
+            CueKind.HEARD -> if (base.mode == IslandMode.HIDDEN || base.mode == IslandMode.IDLE || base.mode == IslandMode.REPLY || base.mode == IslandMode.NOTICE)
                 base.copy(mode = IslandMode.LISTENING, title = "Listening", icon = "mic", text = c.text.orEmpty(), expanded = false, sinceMs = now)
             else base.copy(text = c.text ?: base.text)
-            CueKind.DONE -> if (base.mode == IslandMode.HIDDEN && !c.text.isNullOrBlank()) base.copy(mode = IslandMode.REPLY, title = "JARVIS", text = c.text, icon = "check", lastReply = c.text, sinceMs = now) else base
+            CueKind.DONE -> if ((base.mode == IslandMode.HIDDEN || base.mode == IslandMode.IDLE) && !c.text.isNullOrBlank()) base.copy(mode = IslandMode.REPLY, title = "JARVIS", text = c.text, icon = "check", lastReply = c.text, sinceMs = now) else base
             CueKind.FAILED -> base.copy(mode = IslandMode.ERROR, title = "JARVIS", text = c.text.orEmpty(), icon = "alert", expanded = false, sinceMs = now)
         }
     }
 
     private fun tick(s: IslandUiState, now: Long): IslandUiState {
-        if (s.mode == IslandMode.HIDDEN) return s
+        if (s.mode == IslandMode.HIDDEN || s.mode == IslandMode.IDLE) return s
         val age = now - s.sinceMs
         val limit = when (s.mode) {
             IslandMode.REPLY, IslandMode.NOTICE, IslandMode.ERROR -> collapseMs() * (if (s.expanded) 3 else 1)
             IslandMode.IMAGE -> 10 * 60_000L
             else -> watchdogMs
         }
-        return if (age >= limit) s.copy(mode = IslandMode.HIDDEN, expanded = false, level = 0f, progress = null) else s
+        return if (age >= limit) {
+            if (alwaysVisible()) s.copy(mode = IslandMode.IDLE, title = "JARVIS", text = "", icon = "zap", expanded = false, level = 0f, progress = null)
+            else s.copy(mode = IslandMode.HIDDEN, expanded = false, level = 0f, progress = null)
+        } else s
     }
 }

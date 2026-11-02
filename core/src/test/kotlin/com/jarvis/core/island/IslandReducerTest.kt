@@ -196,4 +196,13 @@ class IslandReducerTest {
         assertFalse(r.needsTick(IslandUiState()))
         assertTrue(r.needsTick(IslandUiState(mode = IslandMode.REPLY)))
     }
+
+    @Test
+    fun alwaysVisibleTransitionsToIdleWhenCollapsed() {
+        val alwaysReducer = IslandReducer(collapseMs = { 4000 }, alwaysVisible = { true })
+        var s = alwaysReducer.reduce(IslandUiState(), said("hello"), 1000)
+        assertEquals(IslandMode.REPLY, s.mode)
+        s = alwaysReducer.reduce(s, IslandInput.Tick, 5001)
+        assertEquals(IslandMode.IDLE, s.mode)
+    }
 }

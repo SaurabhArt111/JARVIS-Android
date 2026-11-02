@@ -110,21 +110,37 @@ class ScreenHost(val activity: BaseActivity, private val tabs: List<Tab>, privat
         val ui = ui
         if (!s.topLevel) { nav.visibility = View.GONE; return }
         nav.visibility = View.VISIBLE
-        nav.background = ui.rounded(ui.pal.panel, 0, ui.pal.border).also { }
+        nav.orientation = LinearLayout.VERTICAL
+        nav.setBackgroundColor(ui.pal.panel)
+
+        val divider = ui.divider()
+        val itemsRow = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL }
+
         tabs.forEach { t ->
             val sel = stack.firstOrNull()?.id == t.id
             val tint = if (sel) ui.pal.accent else ui.pal.muted
+            val iconBg = if (sel) ui.rounded(Themes.withAlpha(ui.pal.accent, 35), 16) else null
+
             val item = LinearLayout(activity).apply {
                 orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
-                setPadding(0, ui.dp(8), 0, ui.dp(8)); minimumHeight = ui.dp(56)
+                setPadding(0, ui.dp(6), 0, ui.dp(6)); minimumHeight = ui.dp(52)
                 background = ui.ripple(null, 12); isClickable = true; isFocusable = true
                 contentDescription = t.label + if (sel) ", selected" else ""
-                addView(ui.icon(t.icon, 22, tint))
-                addView(ui.text(t.label, 11f, tint, bold = sel).apply { setPadding(0, ui.dp(3), 0, 0) })
+
+                val iconBox = FrameLayout(activity).apply {
+                    setPadding(ui.dp(16), ui.dp(4), ui.dp(16), ui.dp(4))
+                    if (iconBg != null) background = iconBg
+                    addView(ui.icon(t.icon, 22, tint))
+                }
+                addView(iconBox)
+                addView(ui.text(t.label, 11f, tint, bold = sel).apply { setPadding(0, ui.dp(2), 0, 0) })
                 setOnClickListener { openTab(t.id) }
             }
-            nav.addView(item, LinearLayout.LayoutParams(0, WRAP, 1f))
+            itemsRow.addView(item, LinearLayout.LayoutParams(0, WRAP, 1f))
         }
+
+        nav.addView(divider, LinearLayout.LayoutParams(MATCH, ui.dp(1)))
+        nav.addView(itemsRow, LinearLayout.LayoutParams(MATCH, WRAP))
     }
 
     private fun applyInsets() {

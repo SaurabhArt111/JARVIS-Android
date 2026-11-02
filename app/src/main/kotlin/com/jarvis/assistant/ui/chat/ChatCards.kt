@@ -31,7 +31,7 @@ class ChatCards(private val ui: Ui, private val app: AppContainer, private val h
     }
 
     private val pal get() = ui.pal
-    private fun s(id: Int, vararg a: Any) = ui.ctx.getString(id, *a)
+    private fun s(id: Int, vararg a: Any) = if (a.isEmpty()) ui.ctx.getString(id) else ui.ctx.getString(id, *a)
 
     fun render(card: Card): View? = when (card.type) {
         "weather" -> weather(card)

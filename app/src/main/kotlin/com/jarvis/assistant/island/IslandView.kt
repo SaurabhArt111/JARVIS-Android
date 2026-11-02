@@ -155,8 +155,13 @@ class IslandView(ctx: Context, private val accent: Int) : FrameLayout(ctx) {
         target.set((p.x - hit.left).toFloat(), (p.y - hit.top).toFloat(), (p.x - hit.left + p.width).toFloat(), (p.y - hit.top + p.height).toFloat())
         keepOut = p.keepOut.map { RectF((it.left - hit.left).toFloat(), (it.top - hit.top).toFloat(), (it.right - hit.left).toFloat(), (it.bottom - hit.top).toFloat()) }
 
-        cardTitle.text = s.title
-        cardBody.text = if (s.mode == IslandMode.LISTENING && s.text.isBlank()) "…" else s.text
+        cardTitle.text = s.title.ifBlank { "JARVIS" }
+        cardBody.text = when {
+            s.text.isNotBlank() -> s.text
+            s.mode == IslandMode.LISTENING -> "Listening…"
+            s.mode == IslandMode.THINKING -> "Thinking…"
+            else -> "How can I help you, sir?"
+        }
         cardTitleIcon.setImageResource(Icons.res(context, s.icon.ifBlank { "info" }))
         cardTitleIcon.setColorFilter(accent)
         contentDescription = context.getString(R.string.island_cd_state, s.title, s.text).trim().trimEnd('.')

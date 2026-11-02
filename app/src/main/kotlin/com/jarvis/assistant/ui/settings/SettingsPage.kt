@@ -22,15 +22,17 @@ import com.jarvis.core.format.Formats
 abstract class SettingsPage : Screen() {
     private var scrollPos = 0
     protected val settings get() = app.settings
-    protected fun s(id: Int, vararg a: Any): String = activity.getString(id, *a)
+    protected fun s(id: Int, vararg a: Any): String = if (a.isEmpty()) activity.getString(id) else activity.getString(id, *a)
 
     protected abstract fun fill(c: LinearLayout)
 
     override fun build(): View {
         val c = ui.column(padH = 16, padV = 8, gap = 10)
         fill(c)
-        c.addView(ui.spacer(32))
+        c.addView(ui.spacer(64))
         val sv: ScrollView = ui.scroll(c)
+        sv.clipToPadding = false
+        sv.setPadding(0, 0, 0, ui.dp(24))
         sv.viewTreeObserver.addOnScrollChangedListener { scrollPos = sv.scrollY }
         sv.post { sv.scrollTo(0, scrollPos) }
         return sv

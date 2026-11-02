@@ -126,6 +126,16 @@ class IslandPage : SettingsPage() {
             link(s(R.string.ui_island_reset), null, "refresh-cw") { settings.set(Keys.ISLAND_OFFSET_X, null); settings.set(Keys.ISLAND_OFFSET_Y, null); settings.set(Keys.ISLAND_SIZE, null); sync(); host.rebuild() }
         }
         c.group(s(R.string.ui_island_behaviour)) {
+            choice(
+                s(R.string.ui_island_visibility),
+                Keys.ISLAND_ALWAYS_VISIBLE,
+                listOf(
+                    "Off" to s(R.string.ui_island_vis_hide),
+                    "On" to s(R.string.ui_island_vis_always)
+                ),
+                "Off",
+                s(R.string.ui_island_visibility_sub)
+            ) { sync(); host.rebuild() }
             flag(s(R.string.ui_island_speak), s(R.string.ui_island_speak_sub), Keys.ISLAND_SPEAK, false)
         }
     }
