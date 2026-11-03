@@ -53,7 +53,7 @@ class PermissionsScreen : SettingsPage() {
     private fun restrictedSettingsLikely(): Boolean {
         if (android.os.Build.VERSION.SDK_INT < 33) return false
         val installer = try {
-            if (android.os.Build.VERSION.SDK_INT >= 30) activity.packageManager.getInstallSourceInfo(activity.packageName).installingPackage
+            if (android.os.Build.VERSION.SDK_INT >= 30) activity.packageManager.getInstallSourceInfo(activity.packageName).installingPackageName
             else @Suppress("DEPRECATION") activity.packageManager.getInstallerPackageName(activity.packageName)
         } catch (_: Exception) { null }
         return installer != "com.android.vending"
