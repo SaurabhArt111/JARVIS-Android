@@ -18,6 +18,7 @@ import com.jarvis.assistant.di.AppContainer
 import com.jarvis.assistant.platform.AppForeground
 import com.jarvis.assistant.platform.IslandState
 import com.jarvis.assistant.platform.Intents
+import com.jarvis.assistant.platform.KeepAlive
 import com.jarvis.assistant.platform.NotificationHelper
 import com.jarvis.core.settings.Keys
 
@@ -33,6 +34,8 @@ class IslandService : Service() {
     private var controller: IslandController? = null
     private var foregroundStarted = false
 
+    private companion object { const val REVIVE_CODE = 4402 }
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
@@ -44,7 +47,10 @@ class IslandService : Service() {
         // A service started with startForegroundService() must call startForeground() promptly, even if it then stops itself.
         if (!enterForeground()) { stopSelf(); return START_NOT_STICKY }
         when (intent?.action) {
-            Intents.ACTION_ISLAND_STOP -> { c.settings.setFlag(Keys.ISLAND_ENABLED, false); shutDown(); return START_NOT_STICKY }
+            Intents.ACTION_ISLAND_STOP -> {
+                KeepAlive.disarm(this, IslandService::class.java, REVIVE_CODE, Intents.ACTION_ISLAND_START)
+                c.settings.setFlag(Keys.ISLAND_ENABLED, false); shutDown(); return START_NOT_STICKY
+            }
         }
         if (!Settings.canDrawOverlays(this)) {
             c.appLog.w("Island", "no overlay permission; not showing the island")
@@ -59,6 +65,12 @@ class IslandService : Service() {
             else -> ctl.relayout() // START: pick up changed settings
         }
         return START_STICKY
+    }
+
+    /** Swiped out of recents: stock Android keeps this service; OEM task killers do not. Ask the alarm service to bring the island back (see [KeepAlive]). */
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        if (c.settings.flag(Keys.ISLAND_ENABLED, false)) KeepAlive.arm(this, IslandService::class.java, REVIVE_CODE, Intents.ACTION_ISLAND_START, c.appLog)
+        super.onTaskRemoved(rootIntent)
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {

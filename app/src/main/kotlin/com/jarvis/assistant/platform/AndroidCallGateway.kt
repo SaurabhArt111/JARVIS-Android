@@ -5,7 +5,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.media.AudioManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.telecom.TelecomManager
 import com.jarvis.core.contacts.PhoneNumbers
 import com.jarvis.core.model.Requirement
@@ -31,25 +34,56 @@ class AndroidCallGateway(
     private fun hasTelephony() = ctx.packageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)
     private fun granted(p: String) = ctx.checkSelfPermission(p) == PackageManager.PERMISSION_GRANTED
 
-    override fun call(number: String, displayName: String): ActionResult {
+    override fun call(number: String, displayName: String): ActionResult = call(number, displayName, false)
+
+    /**
+     * [speaker] asks Android to start the call on the loudspeaker: through the documented extra EXTRA_START_CALL_WITH_SPEAKERPHONE, and, because some phone makers' dialers
+     * ignore it, by switching the speaker on once the call is really connected (the audio mode becomes IN_CALL). Neither is confirmed back by Android, so the result says "asked".
+     */
+    override fun call(number: String, displayName: String, speaker: Boolean): ActionResult {
         val dial = PhoneNumbers.dialable(number) ?: return ActionResult.fail("I won't dial “${number.take(20)}” — it isn't a normal phone number.")
+        val speakerNote = if (speaker) " on speaker" else ""
         if (!hasTelephony() || telecom == null) {
-            val r = starter.start(Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", dial, null)), "the dialer", "Opened the dialer with $displayName's number. Tap call to ring them.")
-            return r
+            return starter.start(dialIntent(dial, speaker), "the dialer", "Opened the dialer with $displayName's number. Tap call to ring them.")
         }
         if (permissions.isGranted(Requirement.CALL_PHONE)) {
             try {
-                telecom.placeCall(Uri.fromParts("tel", dial, null), Bundle())
-                log.i("Calls", "placeCall requested")
-                return ActionResult.ok("Calling $displayName.", verified = false)
+                val extras = Bundle()
+                if (speaker) extras.putBoolean(TelecomManager.EXTRA_START_CALL_WITH_SPEAKERPHONE, true)
+                telecom.placeCall(Uri.fromParts("tel", dial, null), extras)
+                log.i("Calls", "placeCall requested" + if (speaker) " (speaker)" else "")
+                if (speaker) ensureSpeakerWhenConnected()
+                return ActionResult.ok("Calling $displayName$speakerNote.", verified = false)
             } catch (e: SecurityException) {
                 log.w("Calls", "placeCall refused — falling back to the dialer")
             } catch (e: Exception) {
                 log.w("Calls", "placeCall failed (${e.javaClass.simpleName}) — falling back to the dialer")
             }
         }
-        return starter.start(Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", dial, null)), "the dialer",
-            "Opened the dialer with $displayName's number. Tap call to ring them — JARVIS doesn't have phone permission to do it for you.")
+        return starter.start(dialIntent(dial, speaker), "the dialer",
+            "Opened the dialer with $displayName's number. Tap call to ring them — JARVIS doesn't have phone permission to do it for you." +
+                if (speaker) " Turn on the speaker once it connects." else "")
+    }
+
+    private fun dialIntent(dial: String, speaker: Boolean): Intent =
+        Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", dial, null)).apply { if (speaker) putExtra(TelecomManager.EXTRA_START_CALL_WITH_SPEAKERPHONE, true) }
+
+    /** Polls (cheaply, for at most 45 s) until the phone is in a call, then switches the loudspeaker on. Does nothing if the call never connects. */
+    @Suppress("DEPRECATION")
+    private fun ensureSpeakerWhenConnected() {
+        val audio = ctx.getSystemService(AudioManager::class.java) ?: return
+        val main = Handler(Looper.getMainLooper())
+        val deadline = System.currentTimeMillis() + 45_000L
+        val poll = object : Runnable {
+            override fun run() {
+                if (audio.mode == AudioManager.MODE_IN_CALL) {
+                    try { audio.isSpeakerphoneOn = true } catch (e: Exception) { log.w("Calls", "could not switch the speaker on (${e.javaClass.simpleName})") }
+                    return
+                }
+                if (System.currentTimeMillis() < deadline) main.postDelayed(this, 500)
+            }
+        }
+        main.postDelayed(poll, 1_000)
     }
 
     override fun answerRingingCall(): ActionResult {

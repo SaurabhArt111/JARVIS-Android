@@ -45,10 +45,15 @@ class AndroidContactsGateway(context: Context, private val permissions: Permissi
                     if (p.numbers.none { it.number.filter { ch -> ch.isDigit() } == digits }) p.numbers.add(ContactNumber(number, label, primary))
                 }
             }
-            val ranked = ContactMatcher.rank(name, people.values.map { it.id to it.name }, limit)
+            val all = people.values.map { it.id to it.name }
+            val ranked = ContactMatcher.rank(name, all, limit)
             val matches = ranked.mapNotNull { r -> people[r.id]?.let { ContactMatch(it.id, it.name, it.numbers.toList()) } }
-            log.i("Contacts", "searched ${people.size} contacts -> ${matches.size} match(es)")
-            ContactSearch(matches)
+            val best = ranked.firstOrNull()?.score ?: 0.0
+            // not sure yet: also hand back the contacts that merely sound like it, for the "did you mean" question / the AI's second opinion (names only)
+            val suggestions = if (best >= 0.9) emptyList() else
+                ContactMatcher.shortlist(name, all, 8).mapNotNull { r -> people[r.id]?.let { ContactMatch(it.id, it.name, it.numbers.toList()) } }
+            log.i("Contacts", "searched ${people.size} contacts -> ${matches.size} match(es), ${suggestions.size} sound-alike(s)")
+            ContactSearch(matches, bestScore = best, suggestions = suggestions)
         } catch (e: SecurityException) {
             ContactSearch(emptyList(), listOf(Requirement.CONTACTS))
         } catch (e: Exception) {

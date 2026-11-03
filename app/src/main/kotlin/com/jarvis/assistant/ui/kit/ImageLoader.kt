@@ -41,13 +41,18 @@ class ImageLoader(context: Context, private val log: JarvisLog = JarvisLog.None)
     fun clear() = cache.evictAll()
 
     private fun decode(stored: String, maxPx: Int): Bitmap? {
-        val uri = JarvisFileProvider.safeUriFor(ctx, stored) ?: return null
+        val uri = JarvisFileProvider.safeUriFor(ctx, stored) ?: run { log.w("Images", "a picture was not shown: its address is not one JARVIS saved"); return null }
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        ctx.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) } ?: return null
-        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+        // NOTE: with inJustDecodeBounds the decoder ALWAYS returns null (it only fills outWidth/outHeight). The previous code treated that null as "could not decode",
+        // so no thumbnail was ever shown in the chat or the Library. Open the stream, ignore the return value, and read the bounds instead.
+        val opened = ctx.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds); true } ?: false
+        if (!opened) { log.w("Images", "a picture could not be opened"); return null }
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) { log.w("Images", "a saved file is not a readable picture"); return null }
         var sample = 1
         while ((bounds.outWidth / (sample * 2)) >= maxPx && (bounds.outHeight / (sample * 2)) >= maxPx) sample *= 2
-        val opts = BitmapFactory.Options().apply { inSampleSize = sample }
-        return ctx.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, opts) }
+        val opts = BitmapFactory.Options().apply { inSampleSize = sample; inPreferredConfig = Bitmap.Config.ARGB_8888 }
+        val bmp = ctx.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, opts) }
+        if (bmp == null) log.w("Images", "a picture could not be decoded")
+        return bmp
     }
 }

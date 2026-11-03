@@ -108,6 +108,8 @@ class Settings(private val store: SettingsStore) {
             Keys.ISLAND_COLLAPSE_SECONDS to "4",
             Keys.ISLAND_ALWAYS_VISIBLE to "Off",
             Keys.ISLAND_SPEAK to "Off",
+            Keys.ISLAND_SWIPE_CHAT to "On",        // drag the island down to open a small chat bar in place (instead of opening the app)
+            Keys.ISLAND_HIDE_IN_APP to "On",       // the island would cover JARVIS's own title bar, so it steps aside while JARVIS is open
             // lock screen
             Keys.LOCK_MODE_ENABLED to "Off",
             Keys.LOCK_PRIVACY to "strict",         // strict | balanced | open
@@ -139,6 +141,7 @@ class Settings(private val store: SettingsStore) {
             Keys.ONBOARDED to "Off",
             Keys.CRASH_REPORTING to "Off",         // optional external crash reporting is never enabled implicitly
             Keys.AI_SHARE_PERSONAL to "On",
+            Keys.CONTACT_AI_CHECK to "On",         // let the AI pick the right contact when the recogniser misheard the name (sends only a few similar-sounding names)
         )
     }
 }
@@ -192,6 +195,8 @@ object Keys {
     const val ISLAND_COLLAPSE_SECONDS = "IslandCollapseSeconds"
     const val ISLAND_ALWAYS_VISIBLE = "IslandAlwaysVisible"
     const val ISLAND_SPEAK = "IslandSpeak"
+    const val ISLAND_SWIPE_CHAT = "IslandSwipeChat"
+    const val ISLAND_HIDE_IN_APP = "IslandHideInApp"
 
     const val LOCK_MODE_ENABLED = "LockModeEnabled"
     const val LOCK_PRIVACY = "LockPrivacy"
@@ -225,4 +230,5 @@ object Keys {
     const val ONBOARDED = "Onboarded"
     /** On = reminders/notes/notification text may be sent to the chosen AI provider as context for answers. Off = only counts and titles are. */
     const val AI_SHARE_PERSONAL = "AIShareContext"
+    const val CONTACT_AI_CHECK = "ContactAiCheck"
 }

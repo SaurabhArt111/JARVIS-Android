@@ -69,4 +69,6 @@ class Services(
     val weather: WeatherProvider,
     val images: ImageService,
     val control: AssistantControl = AssistantControl.Unavailable,
+    /** Optional AI second opinion for misheard contact names (see [ContactNameChecker]); null = not available. */
+    val contactChecker: ContactNameChecker? = null,
 )

@@ -43,6 +43,8 @@ class SpeechWakeEngine(context: Context, private val settings: Settings, private
     private var callback: Callback? = null
     private var active = false
     private var delivered = false
+    /** Set when the on-device recogniser reported "language not supported/available" (error 12/13): from then on use the standard recogniser. */
+    private var onDeviceUnusable = false
     private val restart = Runnable { startRecognizer() }
 
     val isActive: Boolean get() = active
@@ -52,6 +54,7 @@ class SpeechWakeEngine(context: Context, private val settings: Settings, private
         callback = cb
         active = true
         backoff.reset()
+        onDeviceUnusable = false
         startRecognizer()
     }
 
@@ -75,7 +78,7 @@ class SpeechWakeEngine(context: Context, private val settings: Settings, private
         if (!active) return
         destroyRecognizer()
         delivered = false
-        val preferOnDevice = Build.VERSION.SDK_INT >= 31 && SpeechRecognizer.isOnDeviceRecognitionAvailable(ctx)
+        val preferOnDevice = !onDeviceUnusable && Build.VERSION.SDK_INT >= 31 && SpeechRecognizer.isOnDeviceRecognitionAvailable(ctx)
         val r = try {
             when {
                 preferOnDevice -> SpeechRecognizer.createOnDeviceSpeechRecognizer(ctx)
@@ -98,6 +101,13 @@ class SpeechWakeEngine(context: Context, private val settings: Settings, private
                 when (error) {
                     SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> fatal("Microphone permission was withdrawn.")
                     SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> scheduleRestart(failed = false)
+                    // 12 = language not supported, 13 = language model not downloaded (on-device recogniser, Android 12+). Retrying the same recogniser can never
+                    // succeed, which is what left the wake word dead on phones whose on-device pack is missing: switch to the standard recogniser instead.
+                    12, 13 -> {
+                        log.i("WakeSpeech", "on-device recogniser cannot use this language (error $error); switching to the standard recogniser")
+                        if (preferOnDevice && !onDeviceUnusable) { onDeviceUnusable = true; scheduleRestart(failed = false) }
+                        else scheduleRestart(failed = true)
+                    }
                     else -> { log.i("WakeSpeech", "recogniser error $error"); scheduleRestart(failed = true) }
                 }
             }

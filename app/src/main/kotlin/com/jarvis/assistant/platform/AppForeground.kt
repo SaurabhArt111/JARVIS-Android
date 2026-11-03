@@ -3,6 +3,8 @@ package com.jarvis.assistant.platform
 import android.app.Activity
 import android.app.Application
 import android.os.Bundle
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -15,10 +17,14 @@ object AppForeground {
 
     val activityVisible: Boolean get() = started.get() > 0
 
+    private val _visible = MutableStateFlow(false)
+    /** [activityVisible] as a flow, so the island can step aside while JARVIS itself is on screen. */
+    val visible: StateFlow<Boolean> = _visible
+
     fun install(app: Application) {
         app.registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
-            override fun onActivityStarted(activity: Activity) { started.incrementAndGet() }
-            override fun onActivityStopped(activity: Activity) { started.updateAndGet { if (it > 0) it - 1 else 0 } }
+            override fun onActivityStarted(activity: Activity) { started.incrementAndGet(); _visible.value = true }
+            override fun onActivityStopped(activity: Activity) { _visible.value = started.updateAndGet { if (it > 0) it - 1 else 0 } > 0 }
             override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
             override fun onActivityResumed(activity: Activity) {}
             override fun onActivityPaused(activity: Activity) {}

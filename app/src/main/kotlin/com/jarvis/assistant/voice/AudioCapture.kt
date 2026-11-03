@@ -11,6 +11,7 @@ import android.media.AudioRecordingConfiguration
 import android.media.MediaRecorder
 import android.os.Process
 import com.jarvis.core.util.JarvisLog
+import com.jarvis.core.wake.AutoGain
 
 /**
  * Microphone capture for the neural wake word: 16 kHz, mono, PCM16, read in 80 ms blocks (1280 samples) on one dedicated thread.
@@ -94,6 +95,7 @@ class AudioCapture(context: Context, private val log: JarvisLog = JarvisLog.None
     private fun loop(rec: AudioRecord, cb: AudioManager.AudioRecordingCallback, listener: Listener, onReleased: (() -> Unit)?) {
         try { Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO) } catch (_: Exception) { }
         val buf = ShortArray(BLOCK)
+        val gain = AutoGain()
         var zeroBlocks = 0
         var failure: String? = null
         try {
@@ -112,6 +114,7 @@ class AudioCapture(context: Context, private val log: JarvisLog = JarvisLog.None
                     zeroBlocks = 0
                     if (zeroSilenced) { zeroSilenced = false; listener.onSilenced(systemSilenced) }
                 }
+                gain.apply(buf, n)
                 listener.onAudio(buf, n)
             }
         } catch (e: InterruptedException) {

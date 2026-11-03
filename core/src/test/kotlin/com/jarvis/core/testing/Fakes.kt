@@ -85,17 +85,31 @@ class FakeAppLauncher(var installed: List<AppMatch> = listOf(
     override fun isInstalled(packageName: String) = installed.any { it.packageName == packageName }
 }
 
-class FakeContacts(var contacts: List<ContactMatch> = emptyList(), var missing: List<Requirement> = emptyList()) : ContactsGateway {
+class FakeContacts(
+    var contacts: List<ContactMatch> = emptyList(), var missing: List<Requirement> = emptyList(),
+    /** What the phone's sound-alike pass would offer when nothing matches well. */
+    var suggestions: List<ContactMatch> = emptyList(), var bestScore: Double = 1.0,
+) : ContactsGateway {
+    val searched = ArrayList<String>()
     override suspend fun search(name: String, limit: Int): ContactSearch {
+        searched.add(name)
         if (missing.isNotEmpty()) return ContactSearch(emptyList(), missing)
         val q = name.trim().lowercase()
-        return ContactSearch(contacts.filter { it.displayName.lowercase().contains(q) }.take(limit))
+        val hits = contacts.filter { it.displayName.lowercase().contains(q) }.take(limit)
+        return ContactSearch(hits, bestScore = if (hits.isEmpty()) 0.0 else bestScore, suggestions = if (hits.isEmpty() || bestScore < 0.9) suggestions else emptyList())
     }
+}
+
+class FakeNameChecker(var answer: List<String> = emptyList()) : ContactNameChecker {
+    val asked = ArrayList<Pair<String, List<String>>>()
+    override suspend fun choose(heard: String, candidates: List<String>): List<String> { asked.add(heard to candidates); return answer }
 }
 
 class FakeCalls : CallGateway {
     val calls = ArrayList<Pair<String, String>>()
+    val speakerFlags = ArrayList<Boolean>()
     var direct = true
+    override fun call(number: String, displayName: String, speaker: Boolean): ActionResult { speakerFlags.add(speaker); return call(number, displayName) }
     override fun call(number: String, displayName: String): ActionResult {
         calls.add(number to displayName)
         return ActionResult.ok(if (direct) "Calling $displayName." else "Opened the dialer for $displayName.")
@@ -271,6 +285,7 @@ class TestEnv(zone: ZoneId = ZoneId.of("Asia/Kolkata")) {
     val weather = FakeWeather()
     val images = FakeImages()
     val control = FakeControl()
+    val nameChecker = FakeNameChecker()
     val logLines = ArrayList<String>()
     val log = object : JarvisLog {
         override fun d(tag: String, msg: String) { logLines.add("D/$tag: $msg") }
@@ -282,6 +297,7 @@ class TestEnv(zone: ZoneId = ZoneId.of("Asia/Kolkata")) {
     val services: Services = Services(
         settings, clock, log, permissions, reminders, scheduler, notes, timers, clockApp, apps, contacts, calls, messaging, notifications,
         device, navigator, media, speaker, documents, memory, web, weather, images, control,
+        contactChecker = object : ContactNameChecker { override suspend fun choose(heard: String, candidates: List<String>) = nameChecker.choose(heard, candidates) },
     )
 
     fun instantOf(y: Int, mo: Int, d: Int, h: Int, mi: Int): Instant = ZonedDateTime.of(y, mo, d, h, mi, 0, 0, clock.zone()).toInstant()

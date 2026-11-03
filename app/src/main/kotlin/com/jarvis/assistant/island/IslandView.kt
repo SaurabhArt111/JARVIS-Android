@@ -51,6 +51,8 @@ class IslandView(ctx: Context, private val accent: Int) : FrameLayout(ctx) {
         fun onTalk()
         fun onType()
         fun onClose()
+        /** A downward swipe on the compact pill: open the mini chat. */
+        fun onSwipeDown()
         /** The user asked to move the island (long press or the Move button); the following drag is reported through [onDrag]. */
         fun onMoveStart()
         fun onDrag(dx: Int, dy: Int)
@@ -97,11 +99,15 @@ class IslandView(ctx: Context, private val accent: Int) : FrameLayout(ctx) {
     private val moveBtn: ImageView
     private val closeBtn: ImageView
 
+    private var swipeDone = false
+
     private val detector = GestureDetector(ctx, object : GestureDetector.SimpleOnGestureListener() {
         override fun onSingleTapUp(e: MotionEvent): Boolean { if (!expandedNow) listener?.onTap(); return true }
         override fun onLongPress(e: MotionEvent) { performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS); beginMove(lastRawX, lastRawY) }
         override fun onFling(e1: MotionEvent?, e2: MotionEvent, vx: Float, vy: Float): Boolean {
-            if (!expandedNow && vy < -dp(600f) && abs(vy) > abs(vx)) { listener?.onClose(); return true }
+            if (expandedNow) return false
+            if (vy < -dp(600f) && abs(vy) > abs(vx)) { listener?.onClose(); return true }
+            if (!swipeDone && vy > dp(500f) && abs(vy) > abs(vx)) { swipeDone = true; listener?.onSwipeDown(); return true }
             return false
         }
         override fun onDown(e: MotionEvent) = true
@@ -353,9 +359,17 @@ class IslandView(ctx: Context, private val accent: Int) : FrameLayout(ctx) {
         when (ev.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 downX = ev.rawX; downY = ev.rawY
+                swipeDone = false
                 if (armedMove) { moving = true; originX = ev.rawX; originY = ev.rawY; invalidate() }
             }
             MotionEvent.ACTION_MOVE -> if (moving) listener?.onDrag((ev.rawX - originX).toInt(), (ev.rawY - originY).toInt())
+            // a slow, deliberate pull down (no fling velocity) counts too: 40 dp, mostly vertical
+            MotionEvent.ACTION_UP -> if (!moving && !swipeDone && !expandedNow) {
+                val dy = ev.rawY - downY; val dx = ev.rawX - downX
+                if (dy > dp(40f) && dy > abs(dx) * 1.5f) { swipeDone = true; listener?.onSwipeDown() }
+            }
+        }
+        when (ev.actionMasked) {
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> if (moving) {
                 moving = false; armedMove = false
                 listener?.onDragEnd()

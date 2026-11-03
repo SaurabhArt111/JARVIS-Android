@@ -54,6 +54,7 @@ class AiPage : SettingsPage() {
         c.group(s(R.string.ui_ai_agent), s(R.string.ui_ai_agent_note)) {
             flag(s(R.string.ui_ai_agent_on), s(R.string.ui_ai_agent_on_sub), Keys.AGENT_MODE, true)
             flag(s(R.string.ui_ai_agent_fallback), s(R.string.ui_ai_agent_fallback_sub), Keys.AGENT_FALLBACK, true)
+            flag(s(R.string.ui_contact_ai), s(R.string.ui_contact_ai_sub), Keys.CONTACT_AI_CHECK, true)
             choice(s(R.string.ui_ai_agent_steps), Keys.AGENT_MAX_STEPS, listOf("3", "4", "6", "8", "10").map { it to it }, "6", s(R.string.ui_ai_agent_steps_sub))
         }
         c.group(s(R.string.ui_ai_services), s(R.string.ui_ai_services_note)) {

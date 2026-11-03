@@ -360,6 +360,7 @@
     <string name="ui_wake_sens_low">Low</string>
     <string name="ui_wake_sens_medium">Medium</string>
     <string name="ui_wake_sens_high">High</string>
+    <string name="ui_wake_sens_max">Maximum (accents, quiet voices)</string>
     <string name="ui_wake_words">Wake words</string>
     <string name="ui_wake_words_sub">Used by the Android speech service method. The on-device model always listens for “hey jarvis”. Separate several with commas.</string>
     <string name="ui_wake_words_bad">Each wake word needs at least two letters.</string>
@@ -626,4 +627,22 @@
     <string name="lock_type_action">Type a request</string>
     <string name="lock_type_label">Type your request</string>
     <string name="lock_dictation_working">Working on it…</string>
+    <!-- island swipe-down chat -->
+    <string name="island_chat_hint">Ask JARVIS…</string>
+    <string name="island_chat_greeting">Yes? Type or tap the microphone.</string>
+    <string name="island_chat_mic">Speak</string>
+    <string name="island_chat_send">Send</string>
+    <string name="island_chat_close">Close chat</string>
+    <string name="island_chat_open_app">Open the full app</string>
+    <string name="island_chat_thinking">Thinking…</string>
+    <string name="island_chat_locked">Unlock your phone to see this.</string>
+    <string name="ui_island_swipe_chat">Pull down to chat</string>
+    <string name="ui_island_swipe_chat_sub">Drag the island down to open a small chat instead of the app</string>
+    <string name="ui_island_hide_in_app">Hide while JARVIS is open</string>
+    <string name="ui_island_hide_in_app_sub">The island steps aside when you are inside JARVIS itself</string>
+    <string name="ui_contact_ai">AI name check for contacts</string>
+    <string name="ui_contact_ai_sub">If speech recognition mishears a name, the AI sees only that name and the few similar contact names (no numbers) to correct it</string>
+    <string name="ui_perm_restricted">If a permission below is greyed out or says "Restricted setting", Android is blocking apps installed from a file. Open App info, tap the three-dot menu at the top right, choose "Allow restricted settings", then come back and grant the permission.</string>
+    <string name="ui_perm_open_app_info">Open App info</string>
+    <string name="ui_perm_restricted_manual">Open Settings → Apps → JARVIS → ⋮ → Allow restricted settings</string>
 </resources>

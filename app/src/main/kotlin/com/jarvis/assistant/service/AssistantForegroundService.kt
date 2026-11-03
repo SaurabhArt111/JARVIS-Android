@@ -15,6 +15,7 @@ import com.jarvis.assistant.R
 import com.jarvis.assistant.di.AppContainer
 import com.jarvis.assistant.platform.AppForeground
 import com.jarvis.assistant.platform.IslandState
+import com.jarvis.assistant.platform.KeepAlive
 import com.jarvis.assistant.platform.Intents
 import com.jarvis.assistant.platform.ListeningState
 import com.jarvis.assistant.platform.NotificationHelper
@@ -54,6 +55,7 @@ class AssistantForegroundService : Service() {
     private var request: Job? = null
     private var foregroundStarted = false
     private var userPaused = false
+    private var userStopped = false
     private var lastStatusText = ""
     private val main = Handler(Looper.getMainLooper())
 
@@ -68,6 +70,12 @@ class AssistantForegroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             Intents.ACTION_LISTEN_STOP -> { stopByUser(); return START_NOT_STICKY }
+            KeepAlive.ACTION_REVIVE -> {
+                // armed by onTaskRemoved: when this very instance survived the swipe there is nothing to do
+                if (foregroundStarted && wake != null) return START_STICKY
+                // started with startForegroundService(): it must still call startForeground() before it may stop itself
+                if (!c.settings.flag(Keys.BACKGROUND_LISTENING, false)) { if (enterForeground()) shutDown(); return START_NOT_STICKY }
+            }
             ACTION_TOGGLE_PAUSE -> {
                 if (!enterForeground()) return START_NOT_STICKY
                 togglePause()
@@ -89,6 +97,7 @@ class AssistantForegroundService : Service() {
     /** The user swiped JARVIS out of the recents list. The foreground service keeps running by design; some phones kill it anyway, which is why the status is read back from [ListeningState]. */
     override fun onTaskRemoved(rootIntent: Intent?) {
         c.appLog.i("Listening", "task removed from recents; service keeps running")
+        if (c.settings.flag(Keys.BACKGROUND_LISTENING, false) && !userStopped) KeepAlive.arm(this, AssistantForegroundService::class.java, REVIVE_CODE, KeepAlive.ACTION_REVIVE, c.appLog)
         super.onTaskRemoved(rootIntent)
     }
 
@@ -177,6 +186,8 @@ class AssistantForegroundService : Service() {
     }
 
     private fun stopByUser() {
+        userStopped = true
+        KeepAlive.disarm(this, AssistantForegroundService::class.java, REVIVE_CODE, KeepAlive.ACTION_REVIVE)
         c.settings.setFlag(Keys.BACKGROUND_LISTENING, false)
         shutDown()
     }
@@ -295,6 +306,7 @@ class AssistantForegroundService : Service() {
     companion object {
         const val ACTION_TALK = "${Intents.PKG}.action.LISTEN_TALK"
         const val ACTION_TOGGLE_PAUSE = "${Intents.PKG}.action.LISTEN_TOGGLE_PAUSE"
+        private const val REVIVE_CODE = 4401
         private const val LISTEN_TIMEOUT_MS = 30_000L
         private const val MAX_FOLLOW_UPS = 3
     }

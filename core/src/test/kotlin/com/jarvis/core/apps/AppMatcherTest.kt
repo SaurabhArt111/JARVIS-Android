@@ -34,3 +34,13 @@ class AppMatcherTest {
         assertEquals(1.0, AppMatcher.ratio("same", "same"), 1e-9)
     }
 }
+
+class AppMatcherPackageNamesTest {
+    private val installed = listOf("WA Business" to "com.whatsapp.w4b", "Chrome" to "com.android.chrome", "Photos" to "com.google.android.apps.photos")
+    @org.junit.Test fun whatsappFindsWhatsAppBusinessWhenThatIsAllThatIsInstalled() =
+        org.junit.Assert.assertEquals("com.whatsapp.w4b", AppMatcher.resolve("whatsapp", installed).first().packageName)
+    @org.junit.Test fun whatsappBusinessByItsFullName() =
+        org.junit.Assert.assertEquals("com.whatsapp.w4b", AppMatcher.resolve("whatsapp business", installed).first().packageName)
+    @org.junit.Test fun photoshopIsStillNotPhotos() =
+        org.junit.Assert.assertTrue(AppMatcher.resolve("photoshop", installed).isEmpty())
+}

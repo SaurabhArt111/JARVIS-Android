@@ -7,8 +7,10 @@ package com.jarvis.core.wake
  */
 enum class SensitivityProfile(val key: String, val threshold: Float, val patience: Int, val cooldownMs: Long) {
     LOW("low", 0.80f, 2, 4000),
-    MEDIUM("medium", 0.60f, 2, 3000),
-    HIGH("high", 0.40f, 1, 2500);
+    MEDIUM("medium", 0.50f, 2, 3000),
+    HIGH("high", 0.35f, 1, 2500),
+    /** For accents and quiet voices the pre-trained "hey jarvis" model scores low: accept weaker scores, but only when they hold for two blocks in a row. */
+    MAX("max", 0.25f, 2, 2500);
 
     companion object {
         fun fromSetting(value: String?): SensitivityProfile =

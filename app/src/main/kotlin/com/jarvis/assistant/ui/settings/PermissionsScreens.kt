@@ -33,6 +33,10 @@ class PermissionsScreen : SettingsPage() {
     override fun fill(c: LinearLayout) {
         val p = app.permissions
         c.paragraph(s(R.string.ui_perm_intro))
+        if (restrictedSettingsLikely()) {
+            c.addView(ui.banner(s(R.string.ui_perm_restricted), ui.pal.warn, "alert-triangle"))
+            c.addView(ui.button(s(R.string.ui_perm_open_app_info), com.jarvis.assistant.ui.kit.Ui.Kind.GHOST) { openAppInfo() })
+        }
         groups.forEach { (titleRes, reqs) ->
             c.addView(ui.sectionHeader(s(titleRes)))
             reqs.forEach { c.addView(card(it)) }
@@ -40,6 +44,27 @@ class PermissionsScreen : SettingsPage() {
         c.addView(ui.sectionHeader(s(R.string.ui_perm_g_conditions)))
         c.addView(conditionRow(s(R.string.ui_perm_internet), if (p.isOnline()) s(R.string.ui_perm_online) else s(R.string.ui_perm_offline), p.isOnline(), null))
         c.addView(conditionRow(s(R.string.ui_perm_ai), if (p.hasAnyProvider()) s(R.string.ui_set_ai_ready) else s(R.string.ui_set_ai_none), p.hasAnyProvider()) { com.jarvis.assistant.ui.Screens.create("settings:ai")?.let { host.push(it) } })
+    }
+
+    /**
+     * Android 13+ greys out "Display over other apps", Accessibility and Notification access for apps installed from a file (not from a store) until the user
+     * picks "Allow restricted settings" in the app's info page. Nothing in an app can do that for them, so say it plainly and take them to the page.
+     */
+    private fun restrictedSettingsLikely(): Boolean {
+        if (android.os.Build.VERSION.SDK_INT < 33) return false
+        val installer = try {
+            if (android.os.Build.VERSION.SDK_INT >= 30) activity.packageManager.getInstallSourceInfo(activity.packageName).installingPackage
+            else @Suppress("DEPRECATION") activity.packageManager.getInstallerPackageName(activity.packageName)
+        } catch (_: Exception) { null }
+        return installer != "com.android.vending"
+    }
+
+    private fun openAppInfo() {
+        try {
+            activity.startActivity(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.fromParts("package", activity.packageName, null)))
+        } catch (_: Exception) {
+            android.widget.Toast.makeText(activity, s(R.string.ui_perm_restricted_manual), android.widget.Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun chip(text: String, color: Int): View = ui.text(text, 12f, color, bold = true).apply {

@@ -47,4 +47,18 @@ class WakeTextTest {
         for (s in listOf("open spotify", "set the volume to 40", "what time is it", "", "thanks")) assertFalse(s, WakeText.isDangling(s))
         assertFalse(WakeText.isDangling(null))
     }
+
+    @Test fun commonMishearingsOfJarvisStillWake() {
+        for (s in listOf("hey jarvish open maps", "jarwis open maps", "hey jar vis open maps", "hey jarvez open maps", "hey, Jarvis! open maps"))
+            assertEquals(s, "open maps", WakeText.extractCommand(s, jarvis).rest)
+    }
+
+    @Test fun ordinaryWordsWakeOnlyAfterAGreeting() {
+        assertTrue(WakeText.extractCommand("hey service open maps", jarvis).matched)
+        assertTrue(WakeText.extractCommand("ok travis what time is it", jarvis).matched)
+        assertFalse("talking about a service must not wake it", WakeText.extractCommand("service is down again", jarvis).matched)
+        assertFalse(WakeText.extractCommand("a service call tomorrow", jarvis).matched)
+    }
+
+    @Test fun bareJarvisStillWorks() = assertEquals("what time is it", WakeText.extractCommand("jarvis what time is it", jarvis).rest)
 }

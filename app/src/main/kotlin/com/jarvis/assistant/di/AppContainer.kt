@@ -138,6 +138,7 @@ class AppContainer(val app: Application) {
             web = DefaultWebSearch(http, settings, appLog), weather = OpenMeteoWeather(http, settings, appLog),
             images = DefaultImageService(http, settings, documents, scope, clock, appLog),
             control = control,
+            contactChecker = com.jarvis.core.contacts.AiContactNameChecker(llm, appLog),
         )
     }
 

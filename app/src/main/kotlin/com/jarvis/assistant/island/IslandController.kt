@@ -13,6 +13,7 @@ import com.jarvis.assistant.platform.AppForeground
 import com.jarvis.assistant.platform.Intents
 import com.jarvis.assistant.service.AssistantBus
 import com.jarvis.assistant.service.ShowState
+import com.jarvis.assistant.voice.VoiceEvent
 import com.jarvis.assistant.ui.AssistantActivity
 import com.jarvis.assistant.ui.kit.MainThread
 import com.jarvis.assistant.ui.kit.Themes
@@ -27,13 +28,19 @@ import com.jarvis.core.island.IslandPosition
 import com.jarvis.core.island.IslandReducer
 import com.jarvis.core.island.IslandUiState
 import com.jarvis.core.island.RectPx
+import com.jarvis.core.model.ActionType
+import com.jarvis.core.model.AssistantReply
+import com.jarvis.core.model.Origin
+import com.jarvis.core.model.UiAction
 import com.jarvis.core.settings.Keys
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.roundToInt
 
 /**
@@ -43,7 +50,7 @@ import kotlin.math.roundToInt
  *
  * [windowContext] should be a window context for TYPE_APPLICATION_OVERLAY on API 30+ (so metrics follow folding); on API 29 the service itself.
  */
-class IslandController(private val service: Context, private val c: AppContainer, private val windowContext: Context) : IslandView.Listener {
+class IslandController(private val service: Context, private val c: AppContainer, private val windowContext: Context) : IslandView.Listener, IslandChatPanel.Listener {
     private val wm: WindowManager = windowContext.getSystemService(WindowManager::class.java)
     private val scope = CoroutineScope(SupervisorJob() + MainThread + c.appLog.coroutineHandler)
     private val reducer = IslandReducer(
@@ -64,6 +71,13 @@ class IslandController(private val service: Context, private val c: AppContainer
     private var dragStartX = 0
     private var dragStartY = 0
     private var lastExpanded = false
+    private var previewUntilMs = 0L
+
+    // the swipe-down mini chat
+    private var chat: IslandChatPanel? = null
+    private var chatLp: WindowManager.LayoutParams? = null
+    private var chatJob: Job? = null
+    private var micJob: Job? = null
 
     // ------------------------------------------------------------------------------------------------ life cycle
     fun start() {
@@ -76,10 +90,13 @@ class IslandController(private val service: Context, private val c: AppContainer
             }
         }
         scope.launch { AssistantBus.levels.collect { dispatch(IslandInput.Level(it)) } }
+        // step aside while JARVIS itself is on screen (setting), come back when it is left
+        scope.launch { AppForeground.visible.collect { render(animate = false) } }
     }
 
     fun stop() {
         scope.cancel()
+        closeChat()
         detach()
         c.appLog.i("Island", "controller stopped")
     }
@@ -91,7 +108,7 @@ class IslandController(private val service: Context, private val c: AppContainer
     }
 
     /** Shows a short sample so the user can judge position and size. */
-    fun preview() = dispatch(IslandInput.Preview(service.getString(R.string.island_preview_text)))
+    fun preview() { previewUntilMs = SystemClock.elapsedRealtime() + 7_000; dispatch(IslandInput.Preview(service.getString(R.string.island_preview_text))) }
 
     // ------------------------------------------------------------------------------------------------ state
     private fun dispatch(input: IslandInput) {
@@ -131,7 +148,7 @@ class IslandController(private val service: Context, private val c: AppContainer
 
     private fun render(animate: Boolean, relayoutWindow: Boolean = true) {
         val s = state
-        if (s.mode == IslandMode.HIDDEN) { detach(); return }
+        if (s.mode == IslandMode.HIDDEN || hiddenBehindApp()) { detach(); return }
         val p = place(s.expanded)
         val v = view ?: attach(p)
         if (v == null) return
@@ -149,6 +166,10 @@ class IslandController(private val service: Context, private val c: AppContainer
             v.bind(s, p, p.hit, animate)
         }
     }
+
+    /** JARVIS is on screen and the user asked the island not to cover it (a settings preview is always allowed to show). */
+    private fun hiddenBehindApp(): Boolean =
+        c.settings.flag(Keys.ISLAND_HIDE_IN_APP, true) && AppForeground.activityVisible && chat == null && SystemClock.elapsedRealtime() > previewUntilMs
 
     private fun params(p: IslandPlacement): WindowManager.LayoutParams = WindowManager.LayoutParams(
         p.hit.width, p.hit.height, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
@@ -211,13 +232,123 @@ class IslandController(private val service: Context, private val c: AppContainer
 
     override fun onType() { openChat(listen = false); dispatch(IslandInput.Close) }
 
-    override fun onClose() = dispatch(IslandInput.Close)
-
     private fun openChat(listen: Boolean) {
         // The overlay is a visible window, which is what lets Android 10+ start an activity from here.
         val i = Intent().setClassName(service.packageName, Intents.ASSISTANT_ACTIVITY).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             .putExtra(AssistantActivity.EXTRA_LISTEN, listen)
         try { service.startActivity(i) } catch (e: Exception) { c.appLog.w("Island", "could not open the chat (${e.javaClass.simpleName})") }
+    }
+
+    // ------------------------------------------------------------------------------------------------ swipe-down mini chat
+    override fun onSwipeDown() {
+        if (!c.settings.flag(Keys.ISLAND_SWIPE_CHAT, true)) return
+        openMiniChat()
+    }
+
+    private fun openMiniChat() {
+        if (chat != null) { chat?.focusInput(); return }
+        if (!android.provider.Settings.canDrawOverlays(service)) return
+        val info = display ?: CutoutDetector.read(windowContext, view).also { display = it }
+        val d = info.density
+        val margin = (12 * d).toInt()
+        val width = minOf(info.width - 2 * margin, (420 * d).toInt())
+        val top = (winRect?.bottom ?: place(false).hit.bottom) + (6 * d).toInt()
+        val height = minOf((380 * d).toInt(), (info.height * 0.5f).toInt())
+        val panel = IslandChatPanel(windowContext, Themes.palette(service, c.settings).accent)
+        panel.listener = this
+        val params = WindowManager.LayoutParams(
+            width, height, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            // focusable (no FLAG_NOT_FOCUSABLE) so the keyboard works; touches outside are reported so a tap elsewhere closes the chat
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT,
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = (info.width - width) / 2
+            y = top
+            softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN
+            title = "JARVIS island chat"
+        }
+        try {
+            wm.addView(panel, params)
+        } catch (e: Exception) {
+            c.appLog.w("Island", "could not open the chat panel (${e.javaClass.simpleName})")
+            return
+        }
+        chat = panel; chatLp = params
+        AppForeground.overlayShown = true
+        dispatch(IslandInput.Close)  // collapse the pill's own card, if it was open
+        panel.focusInput()
+    }
+
+    private fun closeChat() {
+        micJob?.cancel(); micJob = null
+        chatJob?.cancel(); chatJob = null
+        val p = chat ?: return
+        chat = null; chatLp = null
+        try { p.context.getSystemService(android.view.inputmethod.InputMethodManager::class.java)?.hideSoftInputFromWindow(p.windowToken, 0) } catch (_: Exception) { }
+        try { wm.removeViewImmediate(p) } catch (_: Exception) { }
+        c.engine.setListening(false)
+        AppForeground.overlayShown = view != null
+        render(animate = false)
+    }
+
+    override fun onClose() = if (chat != null) closeChat() else dispatch(IslandInput.Close)
+
+    override fun onOpenApp() { closeChat(); openChat(listen = false) }
+
+    override fun onSend(text: String) {
+        val panel = chat ?: return
+        micJob?.cancel(); panel.setListening(false)
+        panel.addUser(text)
+        panel.showThinking()
+        chatJob?.cancel()
+        chatJob = scope.launch {
+            val lock = c.lockState.read()
+            val reply: AssistantReply = try {
+                c.engine.submit(text, Origin.ISLAND, lock)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                c.appLog.w("Island", "chat request failed (${e.javaClass.simpleName})")
+                AssistantReply.error(service.getString(R.string.svc_failed))
+            }
+            // the same rule as everywhere else: on a locked phone, personal content is not shown
+            val shown = if (lock.protectPersonalData && reply.sensitive) service.getString(R.string.island_chat_locked) else reply.text
+            chat?.addAssistant(shown, if (lock.protectPersonalData && reply.sensitive) emptyList() else reply.actions)
+        }
+    }
+
+    override fun onMic() {
+        val panel = chat ?: return
+        if (micJob?.isActive == true) { micJob?.cancel(); micJob = null; panel.setListening(false); c.engine.setListening(false); return }
+        micJob = scope.launch {
+            var heard: String? = null
+            panel.setListening(true)
+            c.engine.setListening(true)
+            try {
+                withTimeoutOrNull(25_000) {
+                    c.voice.listenOnce().collect { e ->
+                        when (e) {
+                            is VoiceEvent.Partial -> chat?.setStatus(e.text)
+                            is VoiceEvent.Final -> heard = e.text
+                            is VoiceEvent.Failed -> chat?.setStatus(e.message)
+                            else -> {}
+                        }
+                    }
+                }
+            } finally {
+                c.engine.setListening(false)
+                chat?.setListening(false)
+            }
+            heard?.takeIf { it.isNotBlank() }?.let { onSend(it) }
+        }
+    }
+
+    override fun onAction(action: UiAction) {
+        when (action.type) {
+            ActionType.CHOOSE, ActionType.CONFIRM, ActionType.CANCEL -> action.payload["answer"]?.let { onSend(it) }
+            else -> { closeChat(); openChat(listen = false) } // buttons that need a real screen (permissions, files, settings) open the app
+        }
     }
 
     override fun onMoveStart() {

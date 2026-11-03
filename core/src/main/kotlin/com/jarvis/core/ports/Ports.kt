@@ -131,7 +131,22 @@ interface AppLauncher {
 // ---------------------------------------------------------------------------------------------------- contacts, calls, messaging
 data class ContactNumber(val number: String, val label: String, val primary: Boolean = false)
 data class ContactMatch(val id: String, val displayName: String, val numbers: List<ContactNumber>)
-data class ContactSearch(val matches: List<ContactMatch>, val missing: List<Requirement> = emptyList(), val error: String? = null)
+/**
+ * [bestScore] is how sure the match is (1.0 = exact name). [suggestions] are contacts that only SOUND somewhat like what was heard (empty when [matches] is confident):
+ * they are what the "did you mean ...?" step and the optional AI name check choose from.
+ */
+data class ContactSearch(
+    val matches: List<ContactMatch>, val missing: List<Requirement> = emptyList(), val error: String? = null,
+    val bestScore: Double = 1.0, val suggestions: List<ContactMatch> = emptyList(),
+)
+
+/**
+ * Optional second opinion on a name the speech recogniser may have got wrong. It is given the heard text and ONLY a short list of contact names that already
+ * sound similar on the phone (never the whole address book, never numbers) and returns those it thinks the user meant (possibly none).
+ */
+interface ContactNameChecker {
+    suspend fun choose(heard: String, candidates: List<String>): List<String>
+}
 
 interface ContactsGateway {
     /** Resolves a spoken name against the device contacts (fuzzy: case, diacritics, nicknames). Never hard-codes people. */
@@ -141,6 +156,9 @@ interface ContactsGateway {
 interface CallGateway {
     /** Places the call with ACTION_CALL when CALL_PHONE is granted, otherwise opens the dialer pre-filled (ACTION_DIAL). Says which one happened. */
     fun call(number: String, displayName: String): ActionResult
+
+    /** Same, asking Android to start the call on the loudspeaker. Gateways that cannot do that fall back to a normal call. */
+    fun call(number: String, displayName: String, speaker: Boolean): ActionResult = call(number, displayName)
     fun answerRingingCall(): ActionResult
     fun endCall(): ActionResult
 }

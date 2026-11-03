@@ -282,7 +282,19 @@ internal class CohereProvider(s: Settings, h: HttpClient, c: JarvisClock, l: Jar
     }
 
     override suspend fun candidates(role: LlmRole): List<String> =
-        super.candidates(role).ifEmpty { listOf("command-a-03-2025", "command-r-plus-08-2024", "command-r-08-2024") }
+        super.candidates(role).ifEmpty { TOOL_MODELS }
+
+    /** Models for tool calls. Cohere's Aya (c4ai-aya-*) and the vision/translate/reasoning variants reject `tools` with a 400, so they are never tried for tool use. */
+    private suspend fun toolCandidates(role: LlmRole): List<String> {
+        val cfg = configuredModel()
+        val all = (if (cfg.isNotEmpty()) listOf(cfg) else emptyList()) + super.candidates(role) + TOOL_MODELS
+        return all.filter { it.isNotEmpty() && !NO_TOOLS.containsMatchIn(it) }.distinct().take(4).ifEmpty { TOOL_MODELS }
+    }
+
+    private companion object {
+        val NO_TOOLS = Regex("aya|c4ai|vision|translate|reasoning|embed|rerank|classify|summarize", RegexOption.IGNORE_CASE)
+        val TOOL_MODELS = listOf("command-a-03-2025", "command-r-plus-08-2024", "command-r-08-2024", "command-r7b-12-2024")
+    }
 
     private fun textOf(msg: Map<String, Any?>): String =
         LlmWire.stripThink(Json.list(msg["content"]).orEmpty().mapNotNull { Json.obj(it) }.joinToString("") { Json.str(it["text"]).orEmpty() })
@@ -309,7 +321,7 @@ internal class CohereProvider(s: Settings, h: HttpClient, c: JarvisClock, l: Jar
         messages: List<Map<String, Any?>>, tools: List<Map<String, Any?>>, temperature: Double, maxTokens: Int, timeoutMs: Int, role: LlmRole, force: Boolean,
     ): ChatResult<AiMessage> {
         var last: LlmException? = null
-        for (model in candidates(role)) {
+        for (model in toolCandidates(role)) {
             val body = linkedMapOf<String, Any?>(
                 "model" to model, "messages" to LlmWire.toCohere(messages), "tools" to tools, "temperature" to temperature, "max_tokens" to maxTokens,
             )
@@ -326,6 +338,12 @@ internal class CohereProvider(s: Settings, h: HttpClient, c: JarvisClock, l: Jar
             val err = LlmWire.httpError(name, r, model)
             last = err
             if (err.kind == LlmErrorKind.MODEL) { markBad(model); continue }
+            if (r.status == 400 && "tool" in LlmWire.errorMessage(r).lowercase()) { // "tool use is not supported by the provided model": try the next model
+                markBad(model, 3600)
+                log.w("LLM", "Cohere model $model can't use tools; trying the next one")
+                last = LlmException("Cohere model $model can't use tools.", LlmErrorKind.MODEL, name, 400)
+                continue
+            }
             throw err
         }
         throw last ?: LlmException("Cohere did not answer.", LlmErrorKind.ERROR, name)

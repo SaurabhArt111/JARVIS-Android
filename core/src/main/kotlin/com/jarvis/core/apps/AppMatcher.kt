@@ -17,6 +17,12 @@ object AppMatcher {
         "ms word" to "word", "ms excel" to "excel", "ppt" to "powerpoint", "vs code" to "visual studio code", "vscode" to "visual studio code",
         "teams" to "microsoft teams", "x" to "twitter", "prime video" to "prime video", "netflix" to "netflix",
     )
+    /** Apps whose launcher label differs from the name people say ("WA Business" is WhatsApp Business). */
+    private val PACKAGE_NAMES = mapOf(
+        "com.whatsapp.w4b" to "whatsapp business", "com.whatsapp" to "whatsapp", "com.google.android.apps.messaging" to "messages",
+        "com.google.android.apps.photos" to "photos", "com.google.android.youtube" to "youtube", "com.android.chrome" to "chrome",
+    )
+    private val PACKAGE_NOISE = setOf("com", "org", "net", "android", "google", "apps", "app", "www", "io", "co", "mobile", "the", "android")
     private val ROMAN = mapOf("ii" to "2", "iii" to "3", "iv" to "4", "v" to "5", "vi" to "6", "vii" to "7", "viii" to "8", "ix" to "9", "x" to "10")
     private val ARABIC = ROMAN.entries.associate { it.value to it.key }
     private val SPOKEN = mapOf("two" to "2", "three" to "3", "four" to "4", "five" to "5", "six" to "6", "seven" to "7", "eight" to "8", "nine" to "9", "ten" to "10")
@@ -85,8 +91,11 @@ object AppMatcher {
         }
         return installed.map { (label, pkg) ->
             val key = norm(label)
-            val keys = listOf(key, norm(pkg.substringAfterLast('.')))
-            val s = qs.maxOf { x -> maxOf(score(x, key), if (key.isEmpty()) 0.0 else score(x, keys[1]) * 0.9) }
+            // other names this app answers to: the well-known name for its package, and the meaningful parts of the package id ("com.whatsapp.w4b" -> whatsapp, w4b)
+            val pkgNames = listOfNotNull(PACKAGE_NAMES[pkg]?.let { norm(it) }) + pkg.split('.').map { norm(it) }.filter { it.isNotEmpty() && it !in PACKAGE_NOISE }
+            val s = qs.maxOf { x ->
+                maxOf(score(x, key), if (key.isEmpty()) 0.0 else (pkgNames.maxOfOrNull { score(x, it) } ?: 0.0) * 0.9)
+            }
             AppMatch(label, pkg, s)
         }.filter { it.score >= threshold }.sortedByDescending { it.score }.take(limit)
     }

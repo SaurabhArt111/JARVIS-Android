@@ -33,20 +33,50 @@ internal object ContactFlow {
             sensitive = true, extras = mapOf("expect_reply" to true, "question" to true, "pending" to kind),
         )
 
-    /** Resolves [who] and calls [onChosen] with (display name, number). Returns the Outcome to show. */
+    /** A local match this sure is used as it is; anything weaker may get the optional AI name check and a "did you mean" question. */
+    private const val CONFIDENT = 0.90
+
+    /**
+     * Resolves [who] and calls [onChosen] with (display name, number).
+     *  1. The phone's own matching (spelling, nicknames, and SOUND: "Dhruv bindori" finds "Dhruv Indori").
+     *  2. If that is not sure, an optional AI second opinion picks among a few similar-sounding names (nothing else is sent; see [com.jarvis.core.ports.ContactNameChecker]).
+     *  3. Several equally good contacts, or only sound-alikes: ask which one instead of guessing.
+     */
     suspend fun resolve(who: String, ctx: ToolContext, verbLabel: String, onChosen: suspend (String, String) -> Outcome): Outcome {
         val svc = ctx.services
         if (looksLikeNumber(who)) return onChosen(who.trim(), who.filter { it.isDigit() || it == '+' })
         val res = svc.contacts.search(who, 5)
         if (res.missing.isNotEmpty()) return T.failed(com.jarvis.core.ports.ActionResult(false, "I need permission to read your contacts before I can find $who.", res.missing), "", "users")
         res.error?.let { return T.fail(it, "users") }
-        if (res.matches.isEmpty()) return T.fail("I couldn't find “$who” in your contacts, so I didn't $verbLabel anyone.", "users")
-        if (res.matches.size == 1) return pickNumber(res.matches[0], ctx, onChosen)
-        val labels = res.matches.map { it.displayName }
-        ctx.dialog.ask("contact") { answer -> choose(answer, res.matches, labels, ctx, onChosen, retry = true).reply }
-        val q = "I found ${res.matches.size} contacts named like that: ${labels.mapIndexed { i, l -> "${i + 1}) $l" }.joinToString(", ")}. Which one?"
+
+        var matches = res.matches
+        var didYouMean = false
+        if ((matches.isEmpty() || res.bestScore < CONFIDENT) && res.suggestions.isNotEmpty()) {
+            val picked = aiPick(who, res.suggestions, ctx)
+            if (picked.isNotEmpty()) matches = picked
+            else if (matches.isEmpty()) { matches = res.suggestions.take(3); didYouMean = true }
+        }
+        if (matches.isEmpty()) return T.fail("I couldn't find “$who” in your contacts, so I didn't $verbLabel anyone.", "users")
+        if (matches.size == 1 && !didYouMean) return pickNumber(matches[0], ctx, onChosen)
+        val labels = matches.map { it.displayName }
+        ctx.dialog.ask("contact") { answer -> choose(answer, matches, labels, ctx, onChosen, retry = true).reply }
+        val q = if (didYouMean) "I couldn't find “$who” exactly. Did you mean ${labels.mapIndexed { i, l -> "${i + 1}) $l" }.joinToString(", ")}? Say the number."
+        else "I found ${matches.size} contacts named like that: ${labels.mapIndexed { i, l -> "${i + 1}) $l" }.joinToString(", ")}. Which one?"
         return Outcome(true, "ASKED THE USER which contact they mean; nothing has been done yet. Do not say anything was $verbLabel.",
             question(q, labels, "contact"), verified = false)
+    }
+
+    /** The AI's pick among [candidates] (names only), or empty when the check is off, not allowed right now, fails or finds nobody. */
+    private suspend fun aiPick(who: String, candidates: List<ContactMatch>, ctx: ToolContext): List<ContactMatch> {
+        val svc = ctx.services
+        val checker = svc.contactChecker ?: return emptyList()
+        if (!svc.settings.flag(com.jarvis.core.settings.Keys.CONTACT_AI_CHECK, true)) return emptyList()
+        if (!svc.settings.flag(com.jarvis.core.settings.Keys.AI_SHARE_PERSONAL, true)) return emptyList()   // the user asked that personal details stay on the phone
+        if (ctx.lock.protectPersonalData) return emptyList()                                               // locked phone: nothing leaves it
+        val names = candidates.map { it.displayName }.distinct().take(8)
+        val chosen = try { checker.choose(who, names) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { return emptyList() }
+        val keep = chosen.map { it.trim().lowercase() }.toSet()
+        return candidates.filter { it.displayName.trim().lowercase() in keep }.distinctBy { it.id }
     }
 
     private suspend fun choose(
@@ -122,6 +152,15 @@ internal fun callControl(args: Args): String? = when (args.str("action").lowerca
     else -> null
 }
 
+/** The ways "speaker" is said or misheard: speaker, speakers, speakerphone, loud speaker, speak, speaking, spiker. */
+private const val SPK = """(?:loud\s*speakers?|speaker\s*phone|speakers?|speak|speaking|spiker|speeker)"""
+
+/** "...on speaker", "with the loud speaker", "in speakerphone mode", "on loudspeaker" at the end of what was heard as a name. */
+internal val SPEAKER_TAIL = Regex("""\s*[,.]?\s*\b(?:(?:on|in|with|using|over|through)\s+(?:the\s+|my\s+)?(?:$SPK|loud)(?:\s+mode)?|(?:loud\s*speakers?|speaker\s*phone)(?:\s+mode)?)\s*$""", RegexOption.IGNORE_CASE)
+
+/** "call on speaker Mom" */
+internal val SPEAKER_HEAD = Regex("""^(?:(?:on|in|with|using)\s+(?:the\s+|my\s+)?$SPK(?:\s+mode)?|(?:loud\s*speakers?|speaker\s*phone))\s*,?\s+(?:to\s+)?""", RegexOption.IGNORE_CASE)
+
 class CallTool : Tool {
     override val spec = ToolSpec(
         "call", "Phone call to a contact or number. Places the call directly when JARVIS has phone permission, otherwise opens the dialer with the number ready. " +
@@ -129,6 +168,7 @@ class CallTool : Tool {
         mapOf(
             "contact" to T.p("Contact name or phone number"), "service" to T.p("phone | meet (optional)"),
             "action" to T.p("call (default) | answer | hang_up", enum = listOf("call", "answer", "hang_up")),
+            "speaker" to T.p("true to start the call on the loudspeaker (\"call Mom on speaker\")", "boolean"),
         ),
         emptyList(), Capability.COMMUNICATION, LockClass.CONSEQUENTIAL,
     )
@@ -155,14 +195,20 @@ class CallTool : Tool {
             return if (r.ok) Outcome(true, "Opened Google Meet to start a new video call. Share the link it shows.", T.reply("Opening Google Meet.", "video"), verified = r.verified)
             else T.failed(r, "I couldn't open Google Meet.", "video")
         }
-        val who = args.str("contact", "to", "person", "number", "name")
+        var who = args.str("contact", "to", "person", "number", "name")
+        if (who.isEmpty()) return T.fail("Who should I call?", "phone")
+        // "call Mom on speaker" must not look for a contact called "Mom on speaker"
+        var speaker = args.bool("speaker", "speakerphone", "loudspeaker")
+        SPEAKER_TAIL.find(who)?.let { who = who.removeRange(it.range).trim(' ', ',', '.'); speaker = true }
+        SPEAKER_HEAD.find(who)?.let { who = who.removeRange(it.range).trim(' ', ',', '.'); speaker = true }
         if (who.isEmpty()) return T.fail("Who should I call?", "phone")
         return ContactFlow.resolve(who, ctx, "call") { name, number ->
-            val r = svc.calls.call(number, name)
+            val r = svc.calls.call(number, name, speaker)
             if (!r.ok) T.failed(r, "I couldn't start the call.", "phone")
             else {
                 ctx.dialog.noteAction("called $name")
-                Outcome(true, r.message.ifBlank { "Started the call to $name." } + " (If this only opened the dialer, the user must tap call.)",
+                val tail = if (speaker) " It was asked to start on speaker; Android does not confirm that." else ""
+                Outcome(true, r.message.ifBlank { "Started the call to $name." } + " (If this only opened the dialer, the user must tap call.)" + tail,
                     AssistantReply(r.message.ifBlank { "Calling $name." }, icon = "phone", sensitive = true), verified = false)
             }
         }

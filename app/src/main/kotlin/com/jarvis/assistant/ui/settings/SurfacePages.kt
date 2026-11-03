@@ -38,7 +38,7 @@ class WakePage : SettingsPage() {
         }
         c.group(s(R.string.ui_wake_detect), s(R.string.ui_wake_detect_note)) {
             choice(s(R.string.ui_wake_engine), Keys.WAKE_ENGINE, listOf("auto" to s(R.string.ui_ai_auto), "openwakeword" to s(R.string.ui_wake_engine_oww), "speech" to s(R.string.ui_wake_engine_speech), "off" to s(R.string.ui_off)), "auto", s(R.string.ui_wake_engine_sub))
-            choice(s(R.string.ui_wake_sens), Keys.WAKE_SENSITIVITY, listOf("low" to s(R.string.ui_wake_sens_low), "medium" to s(R.string.ui_wake_sens_medium), "high" to s(R.string.ui_wake_sens_high)), "medium", s(R.string.ui_wake_sens_sub))
+            choice(s(R.string.ui_wake_sens), Keys.WAKE_SENSITIVITY, listOf("low" to s(R.string.ui_wake_sens_low), "medium" to s(R.string.ui_wake_sens_medium), "high" to s(R.string.ui_wake_sens_high), "max" to s(R.string.ui_wake_sens_max)), "medium", s(R.string.ui_wake_sens_sub))
             textRow(s(R.string.ui_wake_words), Keys.WAKE_WORDS, "jarvis", s(R.string.ui_wake_words_sub), { v -> if (v.split(',').any { it.trim().length in 1..1 }) s(R.string.ui_wake_words_bad) else null })
         }
     }
@@ -137,6 +137,8 @@ class IslandPage : SettingsPage() {
                 s(R.string.ui_island_visibility_sub)
             ) { sync(); host.rebuild() }
             flag(s(R.string.ui_island_speak), s(R.string.ui_island_speak_sub), Keys.ISLAND_SPEAK, false)
+            flag(s(R.string.ui_island_swipe_chat), s(R.string.ui_island_swipe_chat_sub), Keys.ISLAND_SWIPE_CHAT, true)
+            flag(s(R.string.ui_island_hide_in_app), s(R.string.ui_island_hide_in_app_sub), Keys.ISLAND_HIDE_IN_APP, true)
         }
     }
 
